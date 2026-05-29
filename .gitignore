@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Package managers
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Next.js
+.next/
+out/
+*.tsbuildinfo
+
+# Foundry
+packages/contracts/cache/
+packages/contracts/out/
+packages/contracts/broadcast/
+packages/contracts/.gas-snapshot
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
