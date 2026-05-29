@@ -40,6 +40,9 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
     uint256 private constant PAYOUT_DENOMINATOR = 100;
     uint32 private constant RANDOM_WORDS_COUNT = 1;
 
+    /// @notice Time after which a player can refund a pending bet if VRF has not fulfilled it.
+    uint256 public constant BET_REFUND_TIMEOUT = 1 hours;
+
     /// @notice Coin side selected by a player or produced by randomness.
     enum Side {
         HEADS,
@@ -50,7 +53,8 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
     enum BetState {
         NONE,
         PENDING,
-        RESOLVED
+        RESOLVED,
+        REFUNDED
     }
 
     /// @notice VRF request settings used when placing bets.
@@ -71,6 +75,7 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         uint256 amount;
         uint256 maxPayout;
         uint256 requestId;
+        uint256 placedAt;
     }
 
     error ZeroAmount();
@@ -79,6 +84,8 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
     error InsufficientBalance(uint256 requested, uint256 available);
     error BankrollUnavailable(uint256 requested, uint256 available);
     error PendingBetExists(address player);
+    error NoPendingBet(address player);
+    error BetRefundNotAvailable(uint256 currentTimestamp, uint256 refundAvailableAt);
     error UnauthorizedCoordinator(address caller, address expected);
     error UnknownRequest(uint256 requestId);
     error MissingRandomWords();
@@ -96,8 +103,10 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         Side result,
         uint256 amount,
         uint256 payout,
-        bool won
+        bool won,
+        uint256 newBalance
     );
+    event BetRefunded(address indexed player, uint256 indexed requestId, uint256 amount, uint256 newBalance);
     event BankrollFunded(address indexed owner, uint256 amount, uint256 totalBankroll);
     event BankrollWithdrawn(address indexed owner, uint256 amount, uint256 totalBankroll);
 
@@ -146,9 +155,9 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         emit Deposited(msg.sender, msg.value, _balances[msg.sender]);
     }
 
-    /// @notice Withdraws ETH from the caller's internal balance to the caller's wallet.
+    /// @notice Withdraws ETH from the caller's internal balance to the caller's wallet, including while paused.
     /// @param amount Amount of wei to withdraw from the caller's internal balance.
-    function withdraw(uint256 amount) external nonReentrant whenNotPaused {
+    function withdraw(uint256 amount) external nonReentrant {
         if (amount == 0) revert ZeroAmount();
 
         uint256 currentBalance = _balances[msg.sender];
@@ -192,7 +201,8 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
             state: BetState.PENDING,
             amount: amount,
             maxPayout: maxPayout,
-            requestId: 0
+            requestId: 0,
+            placedAt: block.timestamp
         });
 
         requestId = vrfCoordinator.requestRandomWords(
@@ -224,6 +234,30 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         fulfillRandomWords(requestId, randomWords);
     }
 
+    /// @notice Refunds the caller's pending bet if VRF fulfillment has not arrived before the timeout.
+    /// @dev This remains available while paused so players can recover stuck stakes.
+    function refundExpiredBet() external {
+        Bet storage bet = _bets[msg.sender];
+        if (bet.state != BetState.PENDING) revert NoPendingBet(msg.sender);
+
+        uint256 refundAvailableAt = bet.placedAt + BET_REFUND_TIMEOUT;
+        if (block.timestamp < refundAvailableAt) revert BetRefundNotAvailable(block.timestamp, refundAvailableAt);
+
+        uint256 amount = bet.amount;
+        uint256 maxPayout = bet.maxPayout;
+        uint256 requestId = bet.requestId;
+
+        totalPendingStakes -= amount;
+        reservedMaximumPayouts -= maxPayout;
+        delete _requestPlayers[requestId];
+
+        _balances[msg.sender] += amount;
+        totalPlayerBalances += amount;
+        bet.state = BetState.REFUNDED;
+
+        emit BetRefunded(msg.sender, requestId, amount, _balances[msg.sender]);
+    }
+
     /// @notice Adds owner-supplied ETH to the casino bankroll used to cover payouts.
     function fundBankroll() external payable onlyOwner {
         if (msg.value == 0) revert ZeroAmount();
@@ -250,12 +284,12 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         emit BankrollWithdrawn(recipient, amount, totalBankroll);
     }
 
-    /// @notice Pauses deposits, withdrawals, and new bets during an emergency.
+    /// @notice Pauses deposits and new bets during an emergency while preserving withdrawals.
     function pause() external onlyOwner {
         _pause();
     }
 
-    /// @notice Unpauses deposits, withdrawals, and new bets after an emergency.
+    /// @notice Unpauses deposits and new bets after an emergency.
     function unpause() external onlyOwner {
         _unpause();
     }
@@ -320,14 +354,19 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         address player = _requestPlayers[requestId];
         if (player == address(0)) revert UnknownRequest(requestId);
 
+        _resolveBet(player, requestId, randomWords[0]);
+    }
+
+    function _resolveBet(address player, uint256 requestId, uint256 randomWord) private {
         Bet storage bet = _bets[player];
         if (bet.state != BetState.PENDING || bet.requestId != requestId) revert UnknownRequest(requestId);
 
         uint256 amount = bet.amount;
         uint256 maxPayout = bet.maxPayout;
-        Side result = randomWords[0] % 2 == 0 ? Side.HEADS : Side.TAILS;
+        Side result = randomWord % 2 == 0 ? Side.HEADS : Side.TAILS;
         bool won = bet.side == result;
         uint256 payout;
+        uint256 newBalance = _balances[player];
 
         totalPendingStakes -= amount;
         reservedMaximumPayouts -= maxPayout;
@@ -339,12 +378,13 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         if (won) {
             payout = maxPayout;
             totalBankroll -= payout - amount;
-            _balances[player] += payout;
+            newBalance += payout;
+            _balances[player] = newBalance;
             totalPlayerBalances += payout;
         } else {
             totalBankroll += amount;
         }
 
-        emit BetResolved(player, requestId, bet.side, result, amount, payout, won);
+        emit BetResolved(player, requestId, bet.side, result, amount, payout, won, newBalance);
     }
 }

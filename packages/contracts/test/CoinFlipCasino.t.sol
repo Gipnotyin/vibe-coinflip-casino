@@ -11,6 +11,7 @@ interface Vm {
     function prank(address sender) external;
     function startPrank(address sender) external;
     function stopPrank() external;
+    function warp(uint256 newTimestamp) external;
 }
 
 interface ICoinFlipCasinoCallback {
@@ -53,11 +54,24 @@ contract CoinFlipCasinoTest {
     uint256 internal constant BET = 1 ether;
     bytes32 internal constant KEY_HASH = bytes32(uint256(1));
     bytes4 internal constant ENFORCED_PAUSE_SELECTOR = bytes4(keccak256("EnforcedPause()"));
+    bytes4 internal constant OWNABLE_UNAUTHORIZED_ACCOUNT_SELECTOR =
+        bytes4(keccak256("OwnableUnauthorizedAccount(address)"));
 
     MockVRFCoordinatorV2Plus internal coordinator;
     CoinFlipCasino internal casino;
 
     event Deposited(address indexed player, uint256 amount, uint256 balance);
+    event BetResolved(
+        address indexed player,
+        uint256 indexed requestId,
+        CoinFlipCasino.Side indexed chosenSide,
+        CoinFlipCasino.Side result,
+        uint256 amount,
+        uint256 payout,
+        bool won,
+        uint256 newBalance
+    );
+    event BetRefunded(address indexed player, uint256 indexed requestId, uint256 amount, uint256 newBalance);
 
     error AssertionFailed();
 
@@ -164,6 +178,7 @@ contract CoinFlipCasinoTest {
         assertEq(bet.amount, BET);
         assertEq(bet.maxPayout, 1.9 ether);
         assertEq(bet.requestId, requestId);
+        assertEq(bet.placedAt, block.timestamp);
         assertEq(coordinator.nextRequestId(), requestId + 1);
         assertAccountingInvariant();
     }
@@ -188,6 +203,27 @@ contract CoinFlipCasinoTest {
         assertEq(casino.balanceOf(PLAYER), DEPOSIT - BET + 1.9 ether);
         assertEq(casino.totalBankroll(), BANKROLL - 0.9 ether);
         assertAccountingInvariant();
+    }
+
+    function testBetResolvedEmitsNewBalance() public {
+        _fundBankroll(BANKROLL);
+        _deposit(PLAYER, DEPOSIT);
+        uint256 requestId = _placeBet(PLAYER, CoinFlipCasino.Side.HEADS, BET);
+        uint256 expectedBalance = DEPOSIT - BET + 1.9 ether;
+
+        vm.expectEmit(true, true, true, true, address(casino));
+        emit BetResolved(
+            PLAYER,
+            requestId,
+            CoinFlipCasino.Side.HEADS,
+            CoinFlipCasino.Side.HEADS,
+            BET,
+            1.9 ether,
+            true,
+            expectedBalance
+        );
+
+        coordinator.fulfill(requestId, 2);
     }
 
     function testResolvingLosingBetDoesNotCreditPayout() public {
@@ -239,6 +275,95 @@ contract CoinFlipCasinoTest {
         coordinator.fulfill(requestId, 2);
     }
 
+    function testExpiredPendingBetCanBeRefunded() public {
+        _fundBankroll(BANKROLL);
+        _deposit(PLAYER, DEPOSIT);
+        uint256 requestId = _placeBet(PLAYER, CoinFlipCasino.Side.HEADS, BET);
+
+        vm.warp(block.timestamp + casino.BET_REFUND_TIMEOUT());
+        vm.prank(PLAYER);
+        casino.refundExpiredBet();
+
+        CoinFlipCasino.Bet memory bet = casino.betOf(PLAYER);
+        assertEq(uint256(bet.state), uint256(CoinFlipCasino.BetState.REFUNDED));
+        assertEq(casino.playerForRequest(requestId), address(0));
+        assertEq(casino.totalPendingStakes(), 0);
+        assertAccountingInvariant();
+    }
+
+    function testPendingBetCannotBeRefundedBeforeTimeout() public {
+        _fundBankroll(BANKROLL);
+        _deposit(PLAYER, DEPOSIT);
+        _placeBet(PLAYER, CoinFlipCasino.Side.HEADS, BET);
+
+        uint256 refundAvailableAt = block.timestamp + casino.BET_REFUND_TIMEOUT();
+        uint256 attemptedAt = refundAvailableAt - 1;
+        vm.warp(attemptedAt);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(CoinFlipCasino.BetRefundNotAvailable.selector, attemptedAt, refundAvailableAt)
+        );
+        vm.prank(PLAYER);
+        casino.refundExpiredBet();
+    }
+
+    function testRefundedBetCannotBeResolvedLater() public {
+        _fundBankroll(BANKROLL);
+        _deposit(PLAYER, DEPOSIT);
+        uint256 requestId = _placeBet(PLAYER, CoinFlipCasino.Side.HEADS, BET);
+
+        vm.warp(block.timestamp + casino.BET_REFUND_TIMEOUT());
+        vm.prank(PLAYER);
+        casino.refundExpiredBet();
+
+        vm.expectRevert(abi.encodeWithSelector(CoinFlipCasino.UnknownRequest.selector, requestId));
+        coordinator.fulfill(requestId, 2);
+    }
+
+    function testRefundReleasesReservedPayout() public {
+        _fundBankroll(BANKROLL);
+        _deposit(PLAYER, DEPOSIT);
+        _placeBet(PLAYER, CoinFlipCasino.Side.HEADS, BET);
+
+        assertEq(casino.reservedMaximumPayouts(), 1.9 ether);
+
+        vm.warp(block.timestamp + casino.BET_REFUND_TIMEOUT());
+        vm.prank(PLAYER);
+        casino.refundExpiredBet();
+
+        assertEq(casino.reservedMaximumPayouts(), 0);
+        assertAccountingInvariant();
+    }
+
+    function testRefundRestoresUserBalance() public {
+        _fundBankroll(BANKROLL);
+        _deposit(PLAYER, DEPOSIT);
+        _placeBet(PLAYER, CoinFlipCasino.Side.HEADS, BET);
+
+        assertEq(casino.balanceOf(PLAYER), DEPOSIT - BET);
+
+        vm.warp(block.timestamp + casino.BET_REFUND_TIMEOUT());
+        vm.prank(PLAYER);
+        casino.refundExpiredBet();
+
+        assertEq(casino.balanceOf(PLAYER), DEPOSIT);
+        assertAccountingInvariant();
+    }
+
+    function testBetRefundedEmitsNewBalance() public {
+        _fundBankroll(BANKROLL);
+        _deposit(PLAYER, DEPOSIT);
+        uint256 requestId = _placeBet(PLAYER, CoinFlipCasino.Side.HEADS, BET);
+
+        vm.warp(block.timestamp + casino.BET_REFUND_TIMEOUT());
+
+        vm.expectEmit(true, true, false, true, address(casino));
+        emit BetRefunded(PLAYER, requestId, BET, DEPOSIT);
+
+        vm.prank(PLAYER);
+        casino.refundExpiredBet();
+    }
+
     function testOnlyVrfCoordinatorCanResolveRandomness() public {
         _fundBankroll(BANKROLL);
         _deposit(PLAYER, DEPOSIT);
@@ -276,6 +401,14 @@ contract CoinFlipCasinoTest {
         casino.withdrawBankroll(withdrawable + 1);
     }
 
+    function testNonOwnerCannotWithdrawBankroll() public {
+        _fundBankroll(BANKROLL);
+
+        vm.expectRevert(abi.encodeWithSelector(OWNABLE_UNAUTHORIZED_ACCOUNT_SELECTOR, ATTACKER));
+        vm.prank(ATTACKER);
+        casino.withdrawBankroll(BET);
+    }
+
     function testPauseBlocksDepositAndPlaceBet() public {
         _fundBankroll(BANKROLL);
         _deposit(PLAYER, DEPOSIT);
@@ -292,15 +425,33 @@ contract CoinFlipCasinoTest {
         casino.placeBet(CoinFlipCasino.Side.HEADS, BET);
     }
 
-    function testWithdrawIsBlockedWhilePaused() public {
+    function testPlayerCanWithdrawWhilePaused() public {
         _deposit(PLAYER, DEPOSIT);
 
         vm.prank(OWNER);
         casino.pause();
 
-        vm.expectRevert(ENFORCED_PAUSE_SELECTOR);
+        uint256 walletBefore = PLAYER.balance;
+
         vm.prank(PLAYER);
         casino.withdraw(BET);
+
+        assertEq(casino.balanceOf(PLAYER), DEPOSIT - BET);
+        assertEq(PLAYER.balance, walletBefore + BET);
+        assertAccountingInvariant();
+    }
+
+    function testNonOwnerCannotPauseOrUnpause() public {
+        vm.expectRevert(abi.encodeWithSelector(OWNABLE_UNAUTHORIZED_ACCOUNT_SELECTOR, ATTACKER));
+        vm.prank(ATTACKER);
+        casino.pause();
+
+        vm.prank(OWNER);
+        casino.pause();
+
+        vm.expectRevert(abi.encodeWithSelector(OWNABLE_UNAUTHORIZED_ACCOUNT_SELECTOR, ATTACKER));
+        vm.prank(ATTACKER);
+        casino.unpause();
     }
 
     function testAccountingInvariantWithPendingBet() public {
