@@ -19,11 +19,13 @@ contract DeployCoinFlipCasino {
     VmDeploy private constant vm = VmDeploy(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     error ConfigValueTooLarge(string name, uint256 value);
+    error WrongChain(uint256 actual, uint256 expected);
 
     function run() external returns (CoinFlipCasino casino) {
         uint256 privateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(privateKey);
 
+        uint256 expectedChainId = vm.envUint("SEPOLIA_CHAIN_ID");
         address vrfCoordinator = vm.envAddress("VRF_COORDINATOR");
         bytes32 vrfKeyHash = vm.envBytes32("VRF_KEY_HASH");
         uint256 vrfSubscriptionId = vm.envUint("VRF_SUBSCRIPTION_ID");
@@ -40,6 +42,10 @@ contract DeployCoinFlipCasino {
             nativePayment: nativePayment
         });
 
+        if (block.chainid != expectedChainId) {
+            revert WrongChain(block.chainid, expectedChainId);
+        }
+
         vm.startBroadcast(privateKey);
         casino = new CoinFlipCasino(deployer, vrfCoordinator, config);
 
@@ -50,6 +56,7 @@ contract DeployCoinFlipCasino {
 
         console2.log("CoinFlipCasino deployed", address(casino));
         console2.log("Owner", deployer);
+        console2.log("Expected chain id", expectedChainId);
         console2.log("VRF coordinator", vrfCoordinator);
         console2.log("VRF subscription id", vrfSubscriptionId);
         console2.log("VRF callback gas limit", callbackGasLimit);
