@@ -1,8 +1,10 @@
 # Crypto Casino
 
-Verifiable coin-flip casino skeleton for the Sepolia testnet. Phase 1 contains only repository infrastructure: a Next.js frontend workspace, a Foundry contracts workspace, shared configuration, and project documentation.
+Verifiable coin-flip casino MVP for the Sepolia testnet. The repo includes a
+Foundry smart contract workspace, Sepolia deployment tooling, and a Next.js
+frontend for wallet connection, contract reads, and testnet-only write flows.
 
-No Solidity contract implementation or frontend casino logic is included yet.
+This project is not production-ready and must not be used with real money.
 
 ## Placeholders
 
@@ -45,6 +47,12 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
 `NEXT_PUBLIC_COIN_FLIP_CASINO_ADDRESS` can stay empty before a Sepolia
 deployment exists. The web app will show a contract-address-missing state and
 will not attempt contract reads.
+
+The frontend can connect an injected browser wallet, read Sepolia casino state,
+and submit deposit, withdraw, place-bet, and expired-bet-refund transactions
+when a valid Sepolia contract address is configured. It does not deploy
+contracts, does not simulate coin-flip outcomes in the browser, and should not
+be treated as production-ready.
 
 Run the web app locally:
 

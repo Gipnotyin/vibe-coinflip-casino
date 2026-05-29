@@ -83,13 +83,13 @@ export function CasinoStatus() {
     );
   }
 
-  if (casino.contractReadError || casino.walletBalanceError) {
+  if (casino.criticalReadError || casino.contractReadError || casino.walletBalanceError) {
     return (
       <section className="rounded-lg border border-red-500/40 bg-red-950/20 p-5">
         <p className="text-xs font-medium uppercase tracking-wider text-red-200">Read error</p>
         <h2 className="mt-2 text-lg font-semibold text-white">Unable to load all data</h2>
         <p className="mt-2 text-sm text-red-100">
-          {casino.contractReadError?.message ?? casino.walletBalanceError?.message}
+          {casino.criticalReadError ?? casino.contractReadError?.message ?? casino.walletBalanceError?.message}
         </p>
       </section>
     );
