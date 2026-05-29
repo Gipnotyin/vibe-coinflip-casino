@@ -28,6 +28,7 @@ export function useRefundExpiredBet() {
     write.writeContract({
       address: coinFlipCasinoAddress,
       abi: coinFlipCasinoAbi,
+      chainId: sepoliaChainId,
       functionName: "refundExpiredBet",
     });
   }

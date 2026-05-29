@@ -97,7 +97,7 @@ export function useCasinoBalance() {
     address,
     chainId: sepoliaChainId,
     query: {
-      enabled: Boolean(isConnected && address),
+      enabled: Boolean(isConnected && address && isSepolia),
     },
   });
 
