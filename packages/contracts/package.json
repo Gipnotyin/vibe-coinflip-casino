@@ -5,9 +5,14 @@
   "scripts": {
     "build": "forge build",
     "test": "forge test",
-    "lint": "forge fmt --check"
+    "lint": "forge fmt --check",
+    "deploy:sepolia": "forge script script/DeployCoinFlipCasino.s.sol:DeployCoinFlipCasino --rpc-url sepolia --broadcast --verify -vvvv",
+    "verify:sepolia": "forge verify-contract --chain sepolia --watch --etherscan-api-key $ETHERSCAN_API_KEY",
+    "export:abi": "forge build && node scripts/export-abi.mjs"
   },
   "dependencies": {
-    "@openzeppelin/contracts": "^5.0.2"
+    "@chainlink/contracts": "^1.5.0",
+    "@openzeppelin/contracts": "^5.0.2",
+    "forge-std": "^1.1.2"
   }
 }
