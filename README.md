@@ -26,6 +26,32 @@ pnpm test
 pnpm lint
 ```
 
+## Frontend Local Run
+
+Install workspace dependencies:
+
+```bash
+pnpm install
+```
+
+Copy `.env.example` to `.env` and set frontend values as needed:
+
+```bash
+NEXT_PUBLIC_SEPOLIA_RPC_URL=
+NEXT_PUBLIC_COIN_FLIP_CASINO_ADDRESS=
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
+```
+
+`NEXT_PUBLIC_COIN_FLIP_CASINO_ADDRESS` can stay empty before a Sepolia
+deployment exists. The web app will show a contract-address-missing state and
+will not attempt contract reads.
+
+Run the web app locally:
+
+```bash
+pnpm --filter @crypto-casino/web dev
+```
+
 ## Repository Structure
 
 ```text
