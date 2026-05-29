@@ -1,36 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
+import {IVRFCoordinatorV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-
-/// @dev Minimal Chainlink VRF v2.5 client structs needed for requestRandomWords.
-library VRFV2PlusClient {
-    struct ExtraArgsV1 {
-        bool nativePayment;
-    }
-
-    struct RandomWordsRequest {
-        bytes32 keyHash;
-        uint256 subId;
-        uint16 requestConfirmations;
-        uint32 callbackGasLimit;
-        uint32 numWords;
-        bytes extraArgs;
-    }
-
-    bytes4 internal constant EXTRA_ARGS_V1_TAG = bytes4(keccak256("VRF ExtraArgsV1"));
-
-    function _argsToBytes(ExtraArgsV1 memory extraArgs) internal pure returns (bytes memory) {
-        return abi.encodeWithSelector(EXTRA_ARGS_V1_TAG, extraArgs);
-    }
-}
-
-/// @dev Minimal Chainlink VRF v2.5 coordinator interface used by this contract.
-interface IVRFCoordinatorV2Plus {
-    function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external returns (uint256 requestId);
-}
 
 /// @title CoinFlipCasino
 /// @notice Sepolia testnet coin flip casino with internal balances,

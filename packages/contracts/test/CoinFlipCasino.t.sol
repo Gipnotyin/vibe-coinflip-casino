@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.24;
 
-import {CoinFlipCasino, IVRFCoordinatorV2Plus, VRFV2PlusClient} from "../src/CoinFlipCasino.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
+import {CoinFlipCasino} from "../src/CoinFlipCasino.sol";
 
 interface Vm {
     function deal(address account, uint256 newBalance) external;
@@ -18,16 +19,12 @@ interface ICoinFlipCasinoCallback {
     function rawFulfillRandomWords(uint256 requestId, uint256[] calldata randomWords) external;
 }
 
-contract MockVRFCoordinatorV2Plus is IVRFCoordinatorV2Plus {
+contract MockVRFCoordinatorV2Plus {
     uint256 public nextRequestId = 1;
 
     mapping(uint256 requestId => address consumer) public consumers;
 
-    function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata)
-        external
-        override
-        returns (uint256 requestId)
-    {
+    function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata) external returns (uint256 requestId) {
         requestId = nextRequestId++;
         consumers[requestId] = msg.sender;
     }
