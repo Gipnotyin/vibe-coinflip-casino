@@ -127,7 +127,7 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         if (vrfCoordinator_ == address(0)) revert ZeroAddress();
         if (
             vrfConfig_.keyHash == bytes32(0) || vrfConfig_.subscriptionId == 0 || vrfConfig_.callbackGasLimit == 0
-            || vrfConfig_.requestConfirmations == 0
+                || vrfConfig_.requestConfirmations == 0
         ) {
             revert InvalidVrfConfig();
         }
@@ -238,7 +238,7 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
     function withdrawBankroll(uint256 amount) external onlyOwner nonReentrant {
         if (amount == 0) revert ZeroAmount();
 
-        uint256 available = availableBankroll();
+        uint256 available = withdrawableBankroll();
         if (amount > available) revert BankrollUnavailable(amount, available);
 
         totalBankroll -= amount;
@@ -281,10 +281,30 @@ contract CoinFlipCasino is Ownable, Pausable, ReentrancyGuard {
         return _requestPlayers[requestId];
     }
 
+    /// @notice Returns the minimum ETH that must stay in the contract for player balances and pending payouts.
+    /// @return amount Required reserve denominated in wei.
+    function requiredReserves() public view returns (uint256 amount) {
+        return totalPlayerBalances + reservedMaximumPayouts;
+    }
+
     /// @notice Returns the casino bankroll not currently reserved for maximum pending payouts.
     /// @return amount Available bankroll denominated in wei.
     function availableBankroll() public view returns (uint256 amount) {
+        if (totalBankroll <= reservedMaximumPayouts) return 0;
+
         return totalBankroll - reservedMaximumPayouts;
+    }
+
+    /// @notice Returns the casino bankroll that the owner can withdraw without breaking reserve requirements.
+    /// @return amount Withdrawable owner bankroll denominated in wei.
+    function withdrawableBankroll() public view returns (uint256 amount) {
+        uint256 reserves = requiredReserves();
+        if (address(this).balance <= reserves) return 0;
+
+        uint256 balanceAvailable = address(this).balance - reserves;
+        uint256 bankrollAvailable = availableBankroll();
+
+        return balanceAvailable < bankrollAvailable ? balanceAvailable : bankrollAvailable;
     }
 
     /// @notice Calculates the maximum payout for a bet amount at 1.9x odds.
