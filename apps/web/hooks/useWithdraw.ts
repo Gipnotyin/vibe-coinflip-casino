@@ -28,6 +28,7 @@ export function useWithdraw() {
     write.writeContract({
       address: coinFlipCasinoAddress,
       abi: coinFlipCasinoAbi,
+      chainId: sepoliaChainId,
       functionName: "withdraw",
       args: [amount],
     });

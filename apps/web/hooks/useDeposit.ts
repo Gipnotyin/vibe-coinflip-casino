@@ -28,6 +28,7 @@ export function useDeposit() {
     write.writeContract({
       address: coinFlipCasinoAddress,
       abi: coinFlipCasinoAbi,
+      chainId: sepoliaChainId,
       functionName: "deposit",
       value: amount,
     });
