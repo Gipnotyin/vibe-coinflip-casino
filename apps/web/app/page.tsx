@@ -1,6 +1,10 @@
 import { CasinoStatus } from "@/components/CasinoStatus";
+import { CoinFlipCard } from "@/components/CoinFlipCard";
+import { DepositCard } from "@/components/DepositCard";
 import { NetworkGuard } from "@/components/NetworkGuard";
+import { PendingBetCard } from "@/components/PendingBetCard";
 import { WalletConnect } from "@/components/WalletConnect";
+import { WithdrawCard } from "@/components/WithdrawCard";
 
 export default function Home() {
   return (
@@ -20,6 +24,14 @@ export default function Home() {
           <NetworkGuard />
           <CasinoStatus />
         </div>
+
+        <div className="grid gap-5 lg:grid-cols-3">
+          <DepositCard />
+          <WithdrawCard />
+          <CoinFlipCard />
+        </div>
+
+        <PendingBetCard />
       </div>
     </main>
   );

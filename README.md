@@ -46,6 +46,12 @@ NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=
 deployment exists. The web app will show a contract-address-missing state and
 will not attempt contract reads.
 
+The frontend can connect an injected browser wallet, read Sepolia casino state,
+and submit deposit, withdraw, place-bet, and expired-bet-refund transactions
+when a valid Sepolia contract address is configured. It does not deploy
+contracts, does not simulate coin-flip outcomes in the browser, and should not
+be treated as production-ready.
+
 Run the web app locally:
 
 ```bash
