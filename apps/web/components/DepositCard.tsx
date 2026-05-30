@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { useCasinoBalance } from "@/hooks/useCasinoBalance";
 import { useDeposit } from "@/hooks/useDeposit";
 import { formatEth, validateEthAmount } from "@/lib/amounts";
+import { targetChainName } from "@/lib/contracts/config";
 import { TransactionStatus } from "@/components/TransactionStatus";
 
 export function DepositCard() {
@@ -22,8 +23,8 @@ export function DepositCard() {
   const blockedReason =
     !casino.isConnected
       ? "Connect a wallet first."
-      : !casino.isSepolia
-        ? "Switch to Sepolia."
+      : !casino.isTargetChain
+        ? `Switch to ${targetChainName}.`
         : casino.contractAddressStatus !== "valid"
           ? "Configure a valid contract address."
           : !casino.isContractReadReady

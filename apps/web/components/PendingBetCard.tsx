@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { sideLabels, useCasinoBalance } from "@/hooks/useCasinoBalance";
 import { useRefundExpiredBet } from "@/hooks/useRefundExpiredBet";
 import { formatEth } from "@/lib/amounts";
+import { isLocalAnvilEnabled } from "@/lib/contracts/config";
 import { TransactionStatus } from "@/components/TransactionStatus";
 
 function formatTimestamp(seconds?: bigint) {
@@ -35,7 +36,7 @@ export function PendingBetCard() {
   const refundPending = refundTx.isAwaitingWallet || refundTx.isConfirming;
   const refundDisabled =
     !casino.isConnected ||
-    !casino.isSepolia ||
+    !casino.isTargetChain ||
     casino.contractAddressStatus !== "valid" ||
     !casino.isContractReadReady ||
     !casino.hasPendingBet ||
@@ -48,7 +49,7 @@ export function PendingBetCard() {
         <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Pending bet</p>
         <h2 className="mt-2 text-lg font-semibold text-white">No active bet</h2>
         <p className="mt-2 text-sm text-slate-400">
-          Placed bets will appear here while Chainlink VRF randomness is pending.
+          Placed bets will appear here while {isLocalAnvilEnabled ? "mock VRF" : "Chainlink VRF"} randomness is pending.
         </p>
       </section>
     );
@@ -57,7 +58,9 @@ export function PendingBetCard() {
   return (
     <section className="rounded-lg border border-amber-400/40 bg-amber-950/20 p-5">
       <p className="text-xs font-medium uppercase tracking-wider text-amber-200">Pending bet</p>
-      <h2 className="mt-2 text-lg font-semibold text-white">Waiting for Chainlink VRF</h2>
+      <h2 className="mt-2 text-lg font-semibold text-white">
+        Waiting for {isLocalAnvilEnabled ? "mock VRF" : "Chainlink VRF"}
+      </h2>
       <p className="mt-2 text-sm text-amber-100">
         The result is not calculated in the browser. It will appear only after the contract receives VRF fulfillment.
       </p>

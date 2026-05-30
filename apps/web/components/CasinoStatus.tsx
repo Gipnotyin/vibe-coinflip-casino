@@ -1,7 +1,7 @@
 "use client";
 
 import { useCasinoBalance } from "@/hooks/useCasinoBalance";
-import { sepoliaExplorerBaseUrl } from "@/lib/contracts/config";
+import { targetChainName, targetExplorerBaseUrl } from "@/lib/contracts/config";
 
 function formatAddress(address?: string) {
   return address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Not available";
@@ -40,17 +40,19 @@ export function CasinoStatus() {
       <section className="rounded-lg border border-slate-800 bg-slate-950 p-5">
         <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Casino reads</p>
         <h2 className="mt-2 text-lg font-semibold text-white">Disconnected</h2>
-        <p className="mt-2 text-sm text-slate-400">Connect a wallet to load Sepolia balances.</p>
+        <p className="mt-2 text-sm text-slate-400">Connect a wallet to load {targetChainName} balances.</p>
       </section>
     );
   }
 
-  if (!casino.isSepolia) {
+  if (!casino.isTargetChain) {
     return (
       <section className="rounded-lg border border-slate-800 bg-slate-950 p-5">
         <p className="text-xs font-medium uppercase tracking-wider text-slate-400">Casino reads</p>
-        <h2 className="mt-2 text-lg font-semibold text-white">Waiting for Sepolia</h2>
-        <p className="mt-2 text-sm text-slate-400">Read-only contract data is paused until Sepolia is selected.</p>
+        <h2 className="mt-2 text-lg font-semibold text-white">Waiting for {targetChainName}</h2>
+        <p className="mt-2 text-sm text-slate-400">
+          Read-only contract data is paused until {targetChainName} is selected.
+        </p>
       </section>
     );
   }
@@ -65,7 +67,7 @@ export function CasinoStatus() {
         </p>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
           <Stat label="Wallet ETH balance" value={walletBalanceLabel} />
-          <Stat label="Connected chain" value={`Sepolia (${casino.chainId})`} />
+          <Stat label="Connected chain" value={`${targetChainName} (${casino.chainId})`} />
         </div>
       </section>
     );
@@ -96,7 +98,8 @@ export function CasinoStatus() {
   }
 
   const isLoading = casino.isContractReadLoading || casino.isWalletBalanceLoading;
-  const contractExplorerUrl = `${sepoliaExplorerBaseUrl}/address/${casino.contractAddress}`;
+  const contractExplorerUrl =
+    targetExplorerBaseUrl && casino.contractAddress ? `${targetExplorerBaseUrl}/address/${casino.contractAddress}` : undefined;
 
   return (
     <section className="rounded-lg border border-slate-800 bg-slate-950 p-5">
@@ -107,14 +110,18 @@ export function CasinoStatus() {
           </p>
           <h2 className="mt-2 text-lg font-semibold text-white">Read-only casino status</h2>
         </div>
-        <a
-          className="font-mono text-sm text-emerald-300 underline-offset-4 hover:underline"
-          href={contractExplorerUrl}
-          rel="noreferrer"
-          target="_blank"
-        >
-          {formatAddress(casino.contractAddress)}
-        </a>
+        {contractExplorerUrl ? (
+          <a
+            className="font-mono text-sm text-emerald-300 underline-offset-4 hover:underline"
+            href={contractExplorerUrl}
+            rel="noreferrer"
+            target="_blank"
+          >
+            {formatAddress(casino.contractAddress)}
+          </a>
+        ) : (
+          <p className="font-mono text-sm text-emerald-300">{formatAddress(casino.contractAddress)}</p>
+        )}
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -136,7 +143,7 @@ export function CasinoStatus() {
         />
         <Stat label="Owner" value={formatAddress(casino.status.owner)} />
         <Stat label="VRF coordinator" value={formatAddress(casino.status.vrfCoordinator)} />
-        <Stat label="Connected chain" value={`Sepolia (${casino.chainId})`} />
+        <Stat label="Connected chain" value={`${targetChainName} (${casino.chainId})`} />
       </div>
     </section>
   );

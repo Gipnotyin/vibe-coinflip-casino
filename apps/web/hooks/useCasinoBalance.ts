@@ -6,7 +6,7 @@ import {
   coinFlipCasinoAbi,
   coinFlipCasinoAddress,
   coinFlipCasinoAddressStatus,
-  sepoliaChainId,
+  targetChainId,
 } from "@/lib/contracts/config";
 
 const contractReads = [
@@ -90,14 +90,14 @@ function normalizeBet(value: CasinoBet | readonly unknown[] | undefined): Casino
 export function useCasinoBalance() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const isSepolia = chainId === sepoliaChainId;
-  const canReadContract = Boolean(isConnected && isSepolia && address && coinFlipCasinoAddress);
+  const isTargetChain = chainId === targetChainId;
+  const canReadContract = Boolean(isConnected && isTargetChain && address && coinFlipCasinoAddress);
 
   const walletBalance = useBalance({
     address,
-    chainId: sepoliaChainId,
+    chainId: targetChainId,
     query: {
-      enabled: Boolean(isConnected && address && isSepolia),
+      enabled: Boolean(isConnected && address && isTargetChain),
     },
   });
 
@@ -111,21 +111,21 @@ export function useCasinoBalance() {
               abi: coinFlipCasinoAbi,
               functionName: contractReads[0].functionName,
               args: [address],
-              chainId: sepoliaChainId,
+              chainId: targetChainId,
             },
             {
               address: coinFlipCasinoAddress,
               abi: coinFlipCasinoAbi,
               functionName: contractReads[1].functionName,
               args: [address],
-              chainId: sepoliaChainId,
+              chainId: targetChainId,
             },
             ...contractReads.slice(2).map((read) => ({
               address: coinFlipCasinoAddress,
               abi: coinFlipCasinoAbi,
               functionName: read.functionName,
               args: read.args,
-              chainId: sepoliaChainId,
+              chainId: targetChainId,
             })),
           ]
         : [],
@@ -173,7 +173,8 @@ export function useCasinoBalance() {
     address,
     chainId,
     isConnected,
-    isSepolia,
+    isTargetChain,
+    isSepolia: isTargetChain,
     contractAddress: coinFlipCasinoAddress,
     contractAddressStatus: coinFlipCasinoAddressStatus,
     canReadContract,

@@ -5,6 +5,7 @@ import type { CoinSide } from "@/hooks/useCasinoBalance";
 import { sideLabels, useCasinoBalance } from "@/hooks/useCasinoBalance";
 import { usePlaceBet } from "@/hooks/usePlaceBet";
 import { calculatePayoutWei, formatEth, validateEthAmount } from "@/lib/amounts";
+import { isLocalAnvilEnabled, targetChainName } from "@/lib/contracts/config";
 import { TransactionStatus } from "@/components/TransactionStatus";
 
 export function CoinFlipCard() {
@@ -31,8 +32,8 @@ export function CoinFlipCard() {
   const blockedReason =
     !casino.isConnected
       ? "Connect a wallet first."
-      : !casino.isSepolia
-        ? "Switch to Sepolia."
+      : !casino.isTargetChain
+        ? `Switch to ${targetChainName}.`
         : casino.contractAddressStatus !== "valid"
           ? "Configure a valid contract address."
           : !casino.isContractReadReady
@@ -114,7 +115,9 @@ export function CoinFlipCard() {
         isAwaitingWallet={placeBetTx.isAwaitingWallet}
         isConfirming={placeBetTx.isConfirming}
         isSuccess={placeBetTx.isSuccess}
-        successMessage="Bet transaction confirmed. Waiting for Chainlink VRF to resolve on-chain."
+        successMessage={`Bet transaction confirmed. Waiting for ${
+          isLocalAnvilEnabled ? "mock VRF fulfillment" : "Chainlink VRF"
+        } to resolve on-chain.`}
       />
     </section>
   );
