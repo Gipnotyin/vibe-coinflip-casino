@@ -1,12 +1,13 @@
 "use client";
 
+import { useCallback } from "react";
 import { formatEther, zeroAddress, type Address } from "viem";
 import { useAccount, useBalance, useChainId, useReadContracts } from "wagmi";
 import {
   coinFlipCasinoAbi,
   coinFlipCasinoAddress,
   coinFlipCasinoAddressStatus,
-  sepoliaChainId,
+  targetChainId,
 } from "@/lib/contracts/config";
 
 const contractReads = [
@@ -90,14 +91,14 @@ function normalizeBet(value: CasinoBet | readonly unknown[] | undefined): Casino
 export function useCasinoBalance() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
-  const isSepolia = chainId === sepoliaChainId;
-  const canReadContract = Boolean(isConnected && isSepolia && address && coinFlipCasinoAddress);
+  const isTargetChain = chainId === targetChainId;
+  const canReadContract = Boolean(isConnected && isTargetChain && address && coinFlipCasinoAddress);
 
   const walletBalance = useBalance({
     address,
-    chainId: sepoliaChainId,
+    chainId: targetChainId,
     query: {
-      enabled: Boolean(isConnected && address && isSepolia),
+      enabled: Boolean(isConnected && address && isTargetChain),
     },
   });
 
@@ -111,21 +112,21 @@ export function useCasinoBalance() {
               abi: coinFlipCasinoAbi,
               functionName: contractReads[0].functionName,
               args: [address],
-              chainId: sepoliaChainId,
+              chainId: targetChainId,
             },
             {
               address: coinFlipCasinoAddress,
               abi: coinFlipCasinoAbi,
               functionName: contractReads[1].functionName,
               args: [address],
-              chainId: sepoliaChainId,
+              chainId: targetChainId,
             },
             ...contractReads.slice(2).map((read) => ({
               address: coinFlipCasinoAddress,
               abi: coinFlipCasinoAbi,
               functionName: read.functionName,
               args: read.args,
-              chainId: sepoliaChainId,
+              chainId: targetChainId,
             })),
           ]
         : [],
@@ -166,14 +167,24 @@ export function useCasinoBalance() {
   const isContractReadReady =
     canReadContract && !casinoReads.isLoading && !casinoReads.isPending && !criticalReadError;
   const pendingBet = latestBet?.state === 1 && latestBet.player !== zeroAddress ? latestBet : undefined;
+  const resolvedBet = latestBet?.state === 2 && latestBet.player !== zeroAddress ? latestBet : undefined;
+  const refundedBet = latestBet?.state === 3 && latestBet.player !== zeroAddress ? latestBet : undefined;
   const refundAvailableAt =
     pendingBet && betRefundTimeout !== undefined ? pendingBet.placedAt + betRefundTimeout : undefined;
+  const refetchCasinoReads = casinoReads.refetch;
+  const refetchWalletBalance = walletBalance.refetch;
+
+  const refetchContractState = useCallback(() => {
+    void refetchCasinoReads();
+    void refetchWalletBalance();
+  }, [refetchCasinoReads, refetchWalletBalance]);
 
   return {
     address,
     chainId,
     isConnected,
-    isSepolia,
+    isTargetChain,
+    isSepolia: isTargetChain,
     contractAddress: coinFlipCasinoAddress,
     contractAddressStatus: coinFlipCasinoAddressStatus,
     canReadContract,
@@ -190,8 +201,12 @@ export function useCasinoBalance() {
     internalBalanceFormatted: formatWei(internalBalance),
     latestBet,
     pendingBet,
+    resolvedBet,
+    refundedBet,
     hasPendingBet: Boolean(pendingBet),
     refundAvailableAt,
+    refetchContractState,
+    isContractStateRefreshing: casinoReads.isRefetching || walletBalance.isRefetching,
     status: {
       totalBankroll,
       totalBankrollFormatted: formatWei(totalBankroll),

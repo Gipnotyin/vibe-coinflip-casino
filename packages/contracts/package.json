@@ -9,6 +9,8 @@
     "deploy:sepolia": "forge script script/DeployCoinFlipCasino.s.sol:DeployCoinFlipCasino --rpc-url sepolia -vvvv",
     "deploy:sepolia:dry": "forge script script/DeployCoinFlipCasino.s.sol:DeployCoinFlipCasino --rpc-url sepolia -vvvv",
     "deploy:sepolia:broadcast": "forge script script/DeployCoinFlipCasino.s.sol:DeployCoinFlipCasino --rpc-url sepolia --broadcast --verify -vvvv",
+    "local:deploy": "forge script script/DeployLocal.s.sol:DeployLocal --rpc-url http://127.0.0.1:8545 --broadcast -vvvv",
+    "local:fulfill": "forge script script/FulfillLocalRandomness.s.sol:FulfillLocalRandomness --rpc-url http://127.0.0.1:8545 --broadcast -vvvv",
     "verify:sepolia": "forge verify-contract --chain sepolia --watch --etherscan-api-key $ETHERSCAN_API_KEY",
     "export:abi": "forge build && node scripts/export-abi.mjs"
   },

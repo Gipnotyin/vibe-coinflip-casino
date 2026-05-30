@@ -4,13 +4,13 @@ import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useWaitForTransactionReceipt, useWriteContract } from "wagmi";
 import type { CoinSide } from "@/hooks/useCasinoBalance";
-import { coinFlipCasinoAbi, coinFlipCasinoAddress, sepoliaChainId } from "@/lib/contracts/config";
+import { coinFlipCasinoAbi, coinFlipCasinoAddress, targetChainId } from "@/lib/contracts/config";
 
 export function usePlaceBet() {
   const queryClient = useQueryClient();
   const write = useWriteContract();
   const receipt = useWaitForTransactionReceipt({
-    chainId: sepoliaChainId,
+    chainId: targetChainId,
     hash: write.data,
     query: {
       enabled: Boolean(write.data),
@@ -29,7 +29,7 @@ export function usePlaceBet() {
     write.writeContract({
       address: coinFlipCasinoAddress,
       abi: coinFlipCasinoAbi,
-      chainId: sepoliaChainId,
+      chainId: targetChainId,
       functionName: "placeBet",
       args: [side, amount],
     });

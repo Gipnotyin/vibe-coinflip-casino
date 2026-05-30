@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Crypto Casino",
-  description: "Verifiable Sepolia coin-flip casino skeleton",
+  description: "Verifiable coin-flip casino MVP",
 };
 
 export default function RootLayout({
