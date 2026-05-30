@@ -99,7 +99,7 @@ The UI should show that Local Anvil mode is enabled and should expect chain ID
 8. Confirm the pending bet panel appears.
 9. Copy the pending bet request ID from the UI.
 10. Trigger mock VRF fulfillment from the terminal.
-11. Confirm the result updates in the UI from contract state/events.
+11. Confirm the UI updates from PENDING to a RESOLVED win/loss result.
 12. Withdraw remaining internal balance.
 
 ## 7. Trigger Mock VRF Fulfillment
@@ -127,7 +127,33 @@ This calls the mock coordinator on local Anvil, which then calls
 `rawFulfillRandomWords()` on the local casino contract. The browser does not
 fake the result.
 
-## 8. Troubleshooting
+After fulfillment, the pending bet panel polls contract state every 1-2 seconds
+while the bet is pending. It should change to a latest result panel without a
+full page refresh. If the update is delayed, click `Refresh contract state` in
+the pending/result panel.
+
+A successful resolved result shows:
+
+- state: `RESOLVED`
+- selected side
+- result side
+- outcome: `WIN` or `LOSS`
+- stake
+- payout, or `0 ETH` plus the lost stake for a loss
+- request ID
+
+## 8. MetaMask Troubleshooting
+
+- MetaMask must be installed in the browser that opened the app.
+- MetaMask must be unlocked before clicking `Connect wallet`.
+- MetaMask must be allowed to access `localhost`.
+- The selected network must be `Local Anvil` with chain ID `31337`.
+- If the wallet is on chain ID `1`, it is still on Ethereum mainnet. Switch to
+  `Local Anvil` before sending local transactions.
+- Import an Anvil test account only for local development. Anvil keys are
+  public and must not hold real funds.
+
+## 9. Troubleshooting
 
 - UI still expects Sepolia: confirm `NEXT_PUBLIC_ENABLE_LOCAL_ANVIL=true` is in
   `apps/web/.env.local`, then restart the dev server.
@@ -141,10 +167,10 @@ fake the result.
   casino deployment.
 - Bet cannot be placed: confirm the casino has local bankroll and the wallet has
   deposited enough internal balance.
-- UI does not refresh after fulfillment: refresh the page and confirm the
-  pending bet panel no longer shows an active bet.
+- UI does not update after fulfillment: click `Refresh contract state` in the
+  pending/result panel. A full page refresh should only be a fallback.
 
-## 9. Safety Notes
+## 10. Safety Notes
 
 - Sepolia deployment scripts remain separate.
 - Production-like Chainlink VRF integration remains unchanged.

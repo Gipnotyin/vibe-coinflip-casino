@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback } from "react";
 import { formatEther, zeroAddress, type Address } from "viem";
 import { useAccount, useBalance, useChainId, useReadContracts } from "wagmi";
 import {
@@ -166,8 +167,17 @@ export function useCasinoBalance() {
   const isContractReadReady =
     canReadContract && !casinoReads.isLoading && !casinoReads.isPending && !criticalReadError;
   const pendingBet = latestBet?.state === 1 && latestBet.player !== zeroAddress ? latestBet : undefined;
+  const resolvedBet = latestBet?.state === 2 && latestBet.player !== zeroAddress ? latestBet : undefined;
+  const refundedBet = latestBet?.state === 3 && latestBet.player !== zeroAddress ? latestBet : undefined;
   const refundAvailableAt =
     pendingBet && betRefundTimeout !== undefined ? pendingBet.placedAt + betRefundTimeout : undefined;
+  const refetchCasinoReads = casinoReads.refetch;
+  const refetchWalletBalance = walletBalance.refetch;
+
+  const refetchContractState = useCallback(() => {
+    void refetchCasinoReads();
+    void refetchWalletBalance();
+  }, [refetchCasinoReads, refetchWalletBalance]);
 
   return {
     address,
@@ -191,8 +201,12 @@ export function useCasinoBalance() {
     internalBalanceFormatted: formatWei(internalBalance),
     latestBet,
     pendingBet,
+    resolvedBet,
+    refundedBet,
     hasPendingBet: Boolean(pendingBet),
     refundAvailableAt,
+    refetchContractState,
+    isContractStateRefreshing: casinoReads.isRefetching || walletBalance.isRefetching,
     status: {
       totalBankroll,
       totalBankrollFormatted: formatWei(totalBankroll),
